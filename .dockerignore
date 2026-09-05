@@ -1,0 +1,26 @@
+# Everything the build does not need. Keeping this tight is what makes a
+# rebuild fast: any path listed here cannot invalidate the build cache.
+
+.git
+.gitignore
+.dockerignore
+Dockerfile
+nginx.conf
+
+# Installed inside the image by `npm ci` against the lockfile.
+node_modules
+
+# Built inside the image. Copying a host build in would ship whatever the last
+# local `npm run build` happened to be pointed at.
+dist
+
+# Per-environment config. VITE_API_URL is passed as a build arg so the value
+# baked into the bundle is the one the deploy asked for, not one that rode in
+# from a developer's laptop.
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+.vscode
+.idea

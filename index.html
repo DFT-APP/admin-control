@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Both icons are the DFT wordmark on the panel's own dark plate. The
+         mark splits each letter diagonally into green and white, so the white
+         half only exists against a dark ground — on a light browser tab strip
+         a transparent version falls apart into green fragments. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- viewport-fit=cover lets the layout paint under the iPhone notch and home
+         indicator; the safe-area insets in index.css keep content clear of them.
+         No maximum-scale: pinch zoom stays available. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Installed to a phone home screen, the panel runs without browser chrome. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DFT Admin" />
+    <!-- An internal console must never end up in a search index. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>DFT Admin</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

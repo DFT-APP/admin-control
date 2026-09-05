@@ -1,0 +1,106 @@
+# ---------------------------------------------------------------------------
+# dft-admin — static serving for a client-side-routed SPA.
+#
+# TLS, the public hostname and rate limiting belong to the reverse proxy in
+# front of this container. Everything here is about serving one directory of
+# hashed assets correctly.
+#
+# ${API_ORIGIN} is substituted at container start by the nginx image's own
+# envsubst step (see the Dockerfile's NGINX_ENVSUBST_FILTER).
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Cache policy, resolved per request rather than per location.
+#
+# nginx's add_header does not merge: a single add_header inside a location
+# discards every add_header inherited from the server block. Setting the
+# cache header in a location would therefore silently strip the CSP and the
+# rest of the security headers from exactly the responses that carry the app.
+# Computing the value here keeps all add_header directives at one level.
+#
+# $uri is evaluated after try_files has done its internal redirect, so the SPA
+# fallback is matched as /index.html and lands on the default — which is what
+# we want: the file that names the current asset hashes must never be cached.
+# ---------------------------------------------------------------------------
+map $uri $dft_cache_control {
+    default                        "no-cache, no-store, must-revalidate";
+    # Hashed at build time: the name changes whenever the bytes do, so these
+    # can be held forever. This is what makes a repeat visit free.
+    ~^/assets/                     "public, max-age=31536000, immutable";
+    ~^/(favicon\.svg|apple-touch-icon\.png|logo\.png)$  "public, max-age=604800";
+}
+
+server {
+    listen 8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # nginx advertises its exact version in the Server header and on its error
+    # pages — free reconnaissance for anyone fingerprinting the host.
+    server_tokens off;
+
+    # Nothing is ever uploaded to this server; the panel posts video and SVG to
+    # the API. A large body arriving here is a mistake, and should be refused
+    # cheaply rather than buffered.
+    client_max_body_size 1m;
+
+    # -----------------------------------------------------------------------
+    # Headers. Every one of these is set here and only here — see the note on
+    # add_header above.
+    #
+    # HSTS is deliberately absent: it belongs on the TLS terminator, the only
+    # tier that knows the panel is served over HTTPS.
+    # -----------------------------------------------------------------------
+    add_header Cache-Control $dft_cache_control always;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # An internal console must never end up in a search index. index.html
+    # carries the same instruction in a meta tag; this covers every other
+    # response and any crawler that reads headers first.
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    # 'unsafe-inline' is granted to styles only: the chart library sets inline
+    # style attributes on the elements it draws. Scripts get no such exception,
+    # so an injected <script> or a javascript: URL is refused by the browser.
+    # connect-src has to name the API origin — the panel is served from a
+    # different host than it talks to.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' ${API_ORIGIN}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml;
+
+    # A missing hashed asset is a broken deploy, not a route. Serving index.html
+    # for it would hand the browser HTML where it asked for JavaScript, and the
+    # real error would surface as an incomprehensible syntax error.
+    location /assets/ {
+        try_files $uri =404;
+        access_log off;
+    }
+
+    # -----------------------------------------------------------------------
+    # SPA fallback. Routing lives in the browser, so /users and /trades are not
+    # files on disk. Without this, a refresh or a shared deep link 404s — the
+    # most common way a working SPA build looks broken in production.
+    # -----------------------------------------------------------------------
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Liveness for the container runtime. Kept out of the access log so a
+    # per-second probe does not drown everything else in it.
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+}

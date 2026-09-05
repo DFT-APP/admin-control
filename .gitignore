@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output. The panel is built from source on the deploy target; a
+# committed dist/ only ever ships someone's stale local build.
+dist/
+
+# Config. VITE_API_URL is not a secret — Vite inlines it into the JS bundle at
+# build time, so it is public the moment the panel is served. It is ignored
+# because it is per-environment, not because it is sensitive; anything that
+# genuinely is secret must never be a VITE_ variable.
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+.eslintcache
