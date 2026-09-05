@@ -1,39 +1,15 @@
-# ---------------------------------------------------------------------------
-# dft-admin
-#
-# The panel is a static bundle, so this is one container with no state, no
-# volumes and no database. It is a separate compose project from the backend
-# because the two deploy on their own schedules — the admin console does not
-# need to restart because a worker did.
-#
-#   docker compose up -d --build
-#
-# The panel is served at https://admin.dft.market by the host's nginx vhost
-# (docker/admin.dft.market.conf), which terminates TLS and proxies to the port
-# published below.
-#
-# Only the loopback interface is published: the vhost is the only thing that
-# should be able to reach this, and binding 0.0.0.0 would put the panel on the
-# public internet on port 8080 with no TLS in front of it.
-# ---------------------------------------------------------------------------
-
 services:
   admin:
     build:
       context: .
       args:
-        # Baked into the JavaScript at build time — see the Dockerfile. A change
-        # here needs --build, not just a restart.
         VITE_API_URL: ${VITE_API_URL:-https://api.dft.market}
     image: dft-admin:latest
     restart: unless-stopped
     environment:
-      # Named in the panel's Content-Security-Policy connect-src. If this does
-      # not match the origin the bundle actually calls, every request is blocked
-      # by the browser and the panel loads but stays empty.
       API_ORIGIN: ${VITE_API_URL:-https://api.dft.market}
     ports:
-      - "127.0.0.1:${ADMIN_PORT:-8080}:8080"
+      - "127.0.0.1:8081:8080"
     logging:
       driver: json-file
       options:
