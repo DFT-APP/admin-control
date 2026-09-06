@@ -23,7 +23,14 @@ export type AdminSignal = {
   tp2: number | null;
   tp3: number | null;
   riskPercentage: number | null;
+  /**
+   * Live for an open signal, the settled figure once closed. Null when the
+   * signal is open but its market has no cached price — unknown, which is a
+   * different thing from flat.
+   */
   profitLossPercentage: number | null;
+  /** True when the figure above is a running number, not a settled one. */
+  isLive: boolean;
   lastPrice: number | null;
   credit: number | null;
   createdAt: string;

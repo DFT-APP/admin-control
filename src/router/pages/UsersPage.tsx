@@ -8,6 +8,7 @@ import {
   type AdminUser,
 } from "@/hooks/useAdmin"
 import { Modal, ConfirmModal, Field, Input, Toggle, ModalActions } from "@/components/ui/modal"
+import { Avatar } from "@/components/ui/avatar"
 
 const columns = [
   {
@@ -23,7 +24,7 @@ const columns = [
     primary: true,
     render: (u: AdminUser) => (
       <div className="flex items-center gap-2">
-        <span>{u.userEmoji || "👤"}</span>
+        <Avatar emoji={u.userEmoji} name={u.userName} />
         <span className="text-gray-100 font-medium">{u.userName}</span>
       </div>
     ),

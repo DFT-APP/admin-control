@@ -60,8 +60,8 @@ const columns = [
   {
     key: "thumbUrl",
     label: "Preview",
-    // Shown beside the file name on a card instead.
-    hideOnCard: true,
+    // With the file-name column gone, the poster is what identifies a card.
+    primary: true,
     render: (v: AdminVideo) =>
       <Poster video={v} className="w-12 h-20" />,
   },
@@ -70,20 +70,6 @@ const columns = [
     label: "ID",
     sortable: true,
     render: (v: AdminVideo) => <span className="text-gray-500">#{v.videoId}</span>,
-  },
-  {
-    key: "name",
-    label: "File",
-    primary: true,
-    render: (v: AdminVideo) => (
-      <div className="flex items-center gap-3 min-w-0">
-        <Poster video={v} className="w-11 h-16 flex-shrink-0 lg:hidden" />
-        <div className="flex flex-col min-w-0 lg:max-w-xs">
-          <span className="text-gray-100 font-medium truncate">{fileName(v.name)}</span>
-          <span className="text-gray-500 text-xs truncate">{v.name}</span>
-        </div>
-      </div>
-    ),
   },
   {
     key: "type",

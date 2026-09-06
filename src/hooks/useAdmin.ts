@@ -76,11 +76,22 @@ export type AdminStats = {
 export type AdminTrade = {
   tradeId: number;
   trader: string;
+  token: string | null;
   pair: string;
   exchange: string;
   type: string;
   status: string;
-  profitLossPercentage: number;
+  /**
+   * Live for an open trade, the settled figure once closed. Null when the
+   * trade is open but no cached price exists for its market — which is a
+   * different thing from flat, and must not be drawn as 0%.
+   */
+  profitLossPercentage: number | null;
+  /** True when the figure above is a running number, not a settled one. */
+  isLive: boolean;
+  currentPrice: number | null;
+  entryPrice: number | null;
+  leverage: number | null;
 };
 
 /** Full trade record exposing every parameter for the admin Trades section. */

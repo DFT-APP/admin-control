@@ -24,6 +24,10 @@ const SignalsPage = lazy(() => import('./pages/SignalsPage'))
 const CreditsPage = lazy(() => import('./pages/CreditsPage'))
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
 const CoinIconsPage = lazy(() => import('./pages/CoinIconsPage'))
+const SupportPage = lazy(() => import('./pages/SupportPage'))
+const ReportsPage = lazy(() => import('./pages/ReportsPage'))
+const BroadcastPage = lazy(() => import('./pages/BroadcastPage'))
+const LogsPage = lazy(() => import('./pages/LogsPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 function PageFallback() {
@@ -60,6 +64,10 @@ export const router = createBrowserRouter([
           { path: 'credits', element: page(<CreditsPage />) },
           { path: 'analytics', element: page(<AnalyticsPage />) },
           { path: 'coin-icons', element: page(<CoinIconsPage />) },
+          { path: 'support', element: page(<SupportPage />) },
+          { path: 'reports', element: page(<ReportsPage />) },
+          { path: 'announcements', element: page(<BroadcastPage />) },
+          { path: 'logs', element: page(<LogsPage />) },
           { path: 'settings', element: page(<SettingsPage />) },
         ],
       },

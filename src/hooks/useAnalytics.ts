@@ -18,6 +18,8 @@ export type AnalyticsSummary = {
   walletCount: number;
   creditsIssued: number;
   creditsSpent: number;
+  /** Credits that were actually bought — revenue, as opposed to refunds and gifts. */
+  creditsPurchased: number;
 };
 
 export type TopAnalyst = {
@@ -38,7 +40,7 @@ export type Analytics = {
   outcomeFlow: { day: string; wins: number; losses: number }[];
   userGrowth: { day: string; users: number }[];
   tradeActivity: { day: string; trades: number }[];
-  ledgerFlow: { day: string; credit: number; debit: number }[];
+  ledgerFlow: { day: string; credit: number; debit: number; purchases: number }[];
   topAnalysts: TopAnalyst[];
   exchanges: { name: string; trades: number }[];
   pairs: { name: string; trades: number }[];

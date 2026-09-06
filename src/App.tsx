@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { useAuthStore, handleSessionExpired } from '@/store/authStore'
 import { setSessionExpiredHandler, ApiHttpError } from '@/lib/apiClient'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { installGlobalErrorReporting } from '@/lib/reportError'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +27,11 @@ const queryClient = new QueryClient({
     mutations: { retry: false },
   },
 })
+
+// Throws from handlers, timers and promise chains never reach a React error
+// boundary, so they are caught at the window instead. Module scope, so a crash
+// during the first render is still reported.
+installGlobalErrorReporting()
 
 // Registered at module scope so a rejected token clears the session even if it
 // happens before the app has finished mounting.

@@ -10,6 +10,10 @@ import {
   Tag,
   Flag,
   Coins,
+  LifeBuoy,
+  Megaphone,
+  ScrollText,
+  ShieldAlert,
   Settings,
   X,
   type LucideIcon,
@@ -27,6 +31,10 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Credits", to: "/credits", icon: Tag },
   { label: "Analytics", to: "/analytics", icon: Flag },
   { label: "Coin Icons", to: "/coin-icons", icon: Coins },
+  { label: "Reports", to: "/reports", icon: ShieldAlert },
+  { label: "Support", to: "/support", icon: LifeBuoy },
+  { label: "Announcements", to: "/announcements", icon: Megaphone },
+  { label: "Logs", to: "/logs", icon: ScrollText },
   { label: "Settings", to: "/settings", icon: Settings },
 ]
 

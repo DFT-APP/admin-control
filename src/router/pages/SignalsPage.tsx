@@ -25,12 +25,44 @@ function StatusPill({ status }: { status: string }) {
   )
 }
 
-function Pnl({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-gray-500">—</span>
+function Pnl({
+  value,
+  live,
+  entry,
+  last,
+}: {
+  value: number | null
+  live?: boolean
+  entry?: number | null
+  last?: number | null
+}) {
+  // An open signal whose market has no cached price has an unknown P/L, not a
+  // flat one — the stored column it used to read is only written at close.
+  if (value == null) {
+    return (
+      <span className="text-gray-500" title="No live price for this market yet">
+        —
+      </span>
+    )
+  }
+
   return (
-    <span className={value >= 0 ? "text-[#a3e635]" : "text-red-400"}>
-      {value > 0 ? "+" : ""}
-      {value.toFixed(2)}%
+    <span
+      className="inline-flex items-center gap-1.5 tabular-nums"
+      title={
+        live && entry != null && last != null
+          ? `Running — entry ${entry}, now ${last}`
+          : undefined
+      }
+    >
+      {/* A running figure moves; a settled one does not. Worth telling apart. */}
+      {live && (
+        <span className="w-1.5 h-1.5 rounded-full bg-[#a3e635] animate-pulse flex-shrink-0" />
+      )}
+      <span className={value >= 0 ? "text-[#a3e635]" : "text-red-400"}>
+        {value > 0 ? "+" : ""}
+        {value.toFixed(2)}%
+      </span>
     </span>
   )
 }
@@ -77,7 +109,14 @@ const columns = [
     key: "profitLossPercentage",
     label: "P/L",
     sortable: true,
-    render: (s: AdminSignal) => <Pnl value={s.profitLossPercentage} />,
+    render: (s: AdminSignal) => (
+      <Pnl
+        value={s.profitLossPercentage}
+        live={s.isLive}
+        entry={s.entryFrom}
+        last={s.lastPrice}
+      />
+    ),
   },
   {
     key: "redemptions",
@@ -196,7 +235,10 @@ export default function SignalsPage() {
             <Row label="TP1" value={price(viewing.tp1)} />
             <Row label="TP2" value={price(viewing.tp2)} />
             <Row label="TP3" value={price(viewing.tp3)} />
-            <Row label="Last price" value={price(viewing.lastPrice)} />
+            <Row
+              label={viewing.isLive ? "Current price" : "Last price"}
+              value={price(viewing.lastPrice)}
+            />
             <Row label="Unlocked by" value={`${viewing.redemptions} users`} />
             <Row label="Analyst reach" value={`${viewing.reach} followers`} />
             <Row label="Posted" value={new Date(viewing.createdAt).toLocaleString()} />

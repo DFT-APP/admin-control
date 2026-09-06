@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react"
+import { reportError } from "@/lib/reportError"
 
 type Props = { children: ReactNode }
 type State = { error: Error | null }
@@ -16,6 +17,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("Admin panel crashed:", error, info.componentStack)
+
+    // The operator sees the message below; this is how anyone else finds out.
+    reportError(error.message, {
+      stack: error.stack,
+      context: { kind: "render", componentStack: info.componentStack?.slice(0, 2000) },
+    })
   }
 
   render() {

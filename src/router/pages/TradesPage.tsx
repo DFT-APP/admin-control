@@ -7,6 +7,7 @@ import {
   type AdminTradeFull,
 } from "@/hooks/useAdmin"
 import { Modal, ConfirmModal, Field, Input, Toggle, ModalActions } from "@/components/ui/modal"
+import { Avatar } from "@/components/ui/avatar"
 
 const STATUS_OPTIONS = ["ACTIVE", "PENDING", "FOLLOWING", "CLOSED"]
 const TYPE_OPTIONS = ["LONG", "SHORT", "FUTURES", "SPOT"]
@@ -28,7 +29,7 @@ const columns = [
     label: "Trader",
     render: (t: AdminTradeFull) => (
       <div className="flex items-center gap-2">
-        <span>{t.traderEmoji || "👤"}</span>
+        <Avatar emoji={t.traderEmoji} name={t.trader} />
         <span className="text-gray-100 font-medium">{t.trader}</span>
       </div>
     ),

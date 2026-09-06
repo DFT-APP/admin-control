@@ -9,6 +9,7 @@ import {
   type AnalystStatusFilter,
 } from "@/hooks/useAdmin"
 import { Modal, ConfirmModal, Field, Input, Toggle, ModalActions } from "@/components/ui/modal"
+import { Avatar } from "@/components/ui/avatar"
 
 const STATUS_TABS: { key: AnalystStatusFilter; label: string }[] = [
   { key: "all", label: "All" },
@@ -31,7 +32,7 @@ const columns = [
     primary: true,
     render: (a: AdminAnalyst) => (
       <div className="flex items-center gap-2">
-        <span>{a.userEmoji || "👤"}</span>
+        <Avatar emoji={a.userEmoji} name={a.userName} />
         <span className="text-gray-100 font-medium">{a.userName}</span>
       </div>
     ),

@@ -8,9 +8,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { ChevronDown, MessageCircle } from "lucide-react";
+import { ChevronDown, LifeBuoy, ShieldAlert } from "lucide-react";
 import { useRecentTrades } from "@/hooks/useAdmin";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useOpenTicketsPreview } from "@/hooks/useSupport";
+import { usePendingReportCount } from "@/hooks/useReports";
 import { CHART } from "@/lib/api-types";
 import { ActivityRail } from "@/components/dashboard/ActivityRail";
 
@@ -21,6 +23,15 @@ function formatNumber(n: number | undefined) {
   return Math.round(n).toLocaleString();
 }
 
+/**
+ * The API zero-fills every day in the window so the charts get a continuous
+ * line, which means an empty period is a series of zeros rather than an empty
+ * array. Panels ask this instead of checking `length`.
+ */
+function hasValues<T extends Record<string, unknown>>(rows: T[], ...keys: (keyof T)[]) {
+  return rows.some((row) => keys.some((key) => Number(row[key]) > 0));
+}
+
 /** Windows the range picker offers. The API floor is 1 day, hence "Today". */
 const RANGES = [
   { label: "Today", days: 1 },
@@ -28,6 +39,14 @@ const RANGES = [
   { label: "Last 30 days", days: 30 },
   { label: "Last 90 days", days: 90 },
 ];
+
+/**
+ * Trades settle a handful of times a week, so a 24-hour window is empty on most
+ * days and the panels read as broken rather than quiet. 30 days is the first
+ * window with reliable signal, and matches what the analytics endpoint defaults
+ * to on its own. "Today" stays available for checking the current session.
+ */
+const DEFAULT_RANGE_DAYS = 30;
 
 // ─── Building blocks ─────────────────────────────────────────────────────────
 
@@ -152,7 +171,9 @@ function TrendArea({
           stroke={color}
           strokeWidth={2}
           fill={`url(#${gradientId})`}
-          dot={false}
+          // "Today" is two buckets wide. Hiding the dots there leaves a stub
+          // that reads as a broken chart, so short series keep their markers.
+          dot={data.length <= 10 ? { r: 2.5, fill: color, strokeWidth: 0 } : false}
           activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
         />
       </AreaChart>
@@ -182,23 +203,41 @@ function ActiveTradesPanel() {
       ) : (
         <ul className="h-full overflow-y-auto divide-y divide-white/5 -mr-1 pr-1">
           {trades.map((t) => {
-            const pl = Number(t.profitLossPercentage) || 0;
+            // Null means the market has no cached price — an unknown figure,
+            // not a flat one. Showing 0% there is what made every open trade
+            // read as +0%.
+            const pl = t.profitLossPercentage;
+            const market = t.token ? `${t.token}/${t.pair}` : t.pair;
             return (
               <li key={t.tradeId} className="flex items-center justify-between py-2.5 gap-3">
                 <div className="min-w-0">
                   <p className="text-sm text-gray-200 truncate">{t.trader}</p>
                   <p className="text-xs text-gray-500 truncate">
-                    {t.pair} · {t.type}
+                    {market} · {t.type}
                   </p>
                 </div>
-                <span
-                  className={`text-sm font-semibold flex-shrink-0 ${
-                    pl >= 0 ? "text-[#a3e635]" : "text-red-400"
-                  }`}
-                >
-                  {pl >= 0 ? "+" : ""}
-                  {pl}%
-                </span>
+                {pl == null ? (
+                  <span
+                    className="text-sm text-gray-600 flex-shrink-0"
+                    title="No live price for this market yet"
+                  >
+                    —
+                  </span>
+                ) : (
+                  <span
+                    className={`text-sm font-semibold flex-shrink-0 tabular-nums ${
+                      pl >= 0 ? "text-[#a3e635]" : "text-red-400"
+                    }`}
+                    title={
+                      t.isLive && t.entryPrice != null && t.currentPrice != null
+                        ? `Live — entry ${t.entryPrice}, now ${t.currentPrice}`
+                        : undefined
+                    }
+                  >
+                    {pl >= 0 ? "+" : ""}
+                    {pl}%
+                  </span>
+                )}
               </li>
             );
           })}
@@ -208,16 +247,57 @@ function ActiveTradesPanel() {
   );
 }
 
-function ChatsPanel() {
+/**
+ * The support queue is the only inbound conversation the product actually has,
+ * so the panel that used to promise chat now shows the tickets waiting on a
+ * reply. Answering happens on the Support page.
+ */
+function SupportPanel() {
+  const { data, isLoading } = useOpenTicketsPreview();
+  const tickets = data?.tickets ?? [];
+  const open = data?.counts?.OPEN ?? 0;
+
   return (
-    <Panel title="Chats" className="h-[320px] sm:h-[380px]">
-      {/* No conversations API exists yet — show the shell rather than invent data. */}
-      <EmptyState>
-        <span className="flex flex-col items-center gap-2 text-gray-600">
-          <MessageCircle size={22} strokeWidth={1.5} />
-          Chat activity isn’t available yet
-        </span>
-      </EmptyState>
+    <Panel
+      title="Support"
+      className="h-[320px] sm:h-[380px]"
+      action={
+        <Link to="/support" className="text-xs text-gray-500 hover:text-[#a3e635] px-2 py-1.5 -mr-2 rounded-lg">
+          {open > 0 ? `${formatNumber(open)} open` : "View all"}
+        </Link>
+      }
+    >
+      {isLoading ? (
+        <EmptyState>Loading…</EmptyState>
+      ) : tickets.length === 0 ? (
+        <EmptyState>
+          <span className="flex flex-col items-center gap-2 text-gray-600">
+            <LifeBuoy size={22} strokeWidth={1.5} />
+            No open tickets
+          </span>
+        </EmptyState>
+      ) : (
+        <ul className="h-full overflow-y-auto divide-y divide-white/5 -mr-1 pr-1">
+          {tickets.map((t) => (
+            <li key={t.id}>
+              <Link
+                to="/support"
+                className="flex items-center justify-between gap-3 py-2.5 hover:opacity-80"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-200 truncate">{t.subject}</p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {t.user?.userName || "Unknown"} · {t.category}
+                  </p>
+                </div>
+                <span className="text-xs text-gray-500 flex-shrink-0">
+                  {new Date(t.createdAt).toLocaleDateString()}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </Panel>
   );
 }
@@ -227,7 +307,7 @@ function RevenuePanel({
   total,
   loading,
 }: {
-  data: { day: string; credit: number }[];
+  data: { day: string; purchases: number }[];
   total: number;
   loading: boolean;
 }) {
@@ -245,12 +325,12 @@ function RevenuePanel({
     >
       {loading ? (
         <EmptyState>Loading…</EmptyState>
-      ) : data.length === 0 ? (
+      ) : !hasValues(data, "purchases") ? (
         <EmptyState>No credit purchases in this period</EmptyState>
       ) : (
         <TrendArea
           data={data}
-          dataKey="credit"
+          dataKey="purchases"
           color={CHART.accent}
           gradientId="revenueGradient"
         />
@@ -259,16 +339,42 @@ function RevenuePanel({
   );
 }
 
+/**
+ * Reported trades used to be invisible from here, and the queue quietly grew for
+ * months. A count that only exists on its own page is a count nobody reads, so
+ * the backlog announces itself on the screen an operator actually opens.
+ */
+function ReportsBanner() {
+  const { data: pending = 0 } = usePendingReportCount();
+  if (pending === 0) return null;
+
+  return (
+    <Link
+      to="/reports"
+      className="flex items-center gap-3 bg-amber-400/10 border border-amber-400/30 rounded-2xl px-4 py-3 mb-3 sm:mb-4 hover:border-amber-400/50 transition-colors"
+    >
+      <ShieldAlert size={18} className="text-amber-400 flex-shrink-0" />
+      <span className="text-amber-200 text-sm min-w-0">
+        <span className="font-semibold">
+          {formatNumber(pending)} reported trade{pending === 1 ? "" : "s"}
+        </span>{" "}
+        waiting on review
+      </span>
+      <span className="ml-auto text-amber-400/70 text-xs flex-shrink-0">Review →</span>
+    </Link>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const [days, setDays] = useState(1);
+  const [days, setDays] = useState(DEFAULT_RANGE_DAYS);
   const { data, isLoading, isError, error } = useAnalytics(days);
 
   const summary = data?.summary;
   const outcomeFlow = data?.outcomeFlow ?? [];
   const ledgerFlow = data?.ledgerFlow ?? [];
-  const revenueTotal = summary?.creditsIssued ?? 0;
+  const revenueTotal = summary?.creditsPurchased ?? 0;
 
   return (
     <div className="flex flex-col xl:flex-row min-h-full xl:h-full">
@@ -304,12 +410,14 @@ export default function Dashboard() {
           </div>
         )}
 
+        <ReportsBanner />
+
         {/* Stat cards */}
         {/* All five sit on one row from lg up. The first two carry longer
             labels, so they take a wider track rather than forcing a wrap. */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.25fr_1.25fr_1fr_1fr_1fr] gap-3 sm:gap-4 mb-3 sm:mb-4">
           <StatCard label="Total Users" value={formatNumber(summary?.totalUsers)} loading={isLoading} />
-          <StatCard label="Purchased Credits" value={formatNumber(summary?.creditsIssued)} loading={isLoading} />
+          <StatCard label="Purchased Credits" value={formatNumber(summary?.creditsPurchased)} loading={isLoading} />
           <StatCard label="Total Trades" value={formatNumber(summary?.totalTrades)} loading={isLoading} />
           <StatCard label="Total Analysts" value={formatNumber(summary?.totalAnalysts)} loading={isLoading} />
           <StatCard label="Open Trades" value={formatNumber(summary?.activeTrades)} loading={isLoading} />
@@ -330,7 +438,7 @@ export default function Dashboard() {
           >
             {isLoading ? (
               <EmptyState>Loading…</EmptyState>
-            ) : outcomeFlow.length === 0 ? (
+            ) : !hasValues(outcomeFlow, "wins") ? (
               <EmptyState>No trades closed in profit in this period</EmptyState>
             ) : (
               <TrendArea
@@ -355,7 +463,7 @@ export default function Dashboard() {
           >
             {isLoading ? (
               <EmptyState>Loading…</EmptyState>
-            ) : outcomeFlow.length === 0 ? (
+            ) : !hasValues(outcomeFlow, "losses") ? (
               <EmptyState>No trades closed in loss in this period</EmptyState>
             ) : (
               <TrendArea
@@ -371,7 +479,7 @@ export default function Dashboard() {
         {/* Activity panels */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <ActiveTradesPanel />
-          <ChatsPanel />
+          <SupportPanel />
           <RevenuePanel data={ledgerFlow} total={revenueTotal} loading={isLoading} />
         </div>
       </div>
