@@ -1,6 +1,14 @@
 import { useState } from "react";
-import { useLogin } from "@/hooks/useLogin";
+import {
+  useLogin,
+  useResendLoginOtp,
+  useVerifyLoginOtp,
+  type OtpChallenge,
+} from "@/hooks/useLogin";
 import { Logo } from "@/components/layout/Logo";
+import { HumanCheck } from "@/components/HumanCheck";
+import { humanCheckEnabled } from "@/lib/humanCheck";
+import { toast } from "sonner";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -9,7 +17,16 @@ export default function Login() {
     email?: string;
     password?: string;
   }>({});
+  const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
+  const [code, setCode] = useState("");
+  // Off by default: the admin console is often opened on shared machines, so
+  // the session ends with the browser unless the operator asks otherwise.
+  const [remember, setRemember] = useState(false);
+  const [humanToken, setHumanToken] = useState<string | null>(null);
+  const [humanReset, setHumanReset] = useState(0);
   const { mutate, isPending } = useLogin();
+  const verifyOtp = useVerifyLoginOtp();
+  const resendOtp = useResendLoginOtp();
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -35,11 +52,35 @@ export default function Login() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isPending || !validate()) return;
+    if (humanCheckEnabled && !humanToken) {
+      toast.error("Confirm you're human first");
+      return;
+    }
 
-    mutate({
-      userEmail: email,
-      password,
-    });
+    mutate(
+      {
+        userEmail: email,
+        password,
+        remember,
+        turnstileToken: humanToken ?? undefined,
+      },
+      {
+        // A correct password from a device the API does not recognise. No
+        // session exists yet, so the card swaps to the code step rather than
+        // navigating anywhere.
+        onSuccess: (result) => {
+          if (result.status === "otp-required") setChallenge(result.challenge);
+        },
+        // The token went out with that request and is spent either way.
+        onError: () => setHumanReset((n) => n + 1),
+      }
+    );
+  };
+
+  const handleVerify = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!challenge || verifyOtp.isPending || code.length !== 6) return;
+    verifyOtp.mutate({ challengeId: challenge.challengeId, code, remember });
   };
 
   return (
@@ -62,7 +103,85 @@ export default function Login() {
         className="absolute w-56 h-56 sm:w-72 sm:h-72 bg-[#a3e635]/10 blur-[120px] rounded-full -bottom-10 -right-10 sm:bottom-10 sm:right-10"
       />
 
-      {/* Card */}
+      {/* Card — the code step replaces the credentials rather than sitting
+          below them, so there is only ever one thing being asked for. */}
+      {challenge ? (
+        <form
+          onSubmit={handleVerify}
+          noValidate
+          className="relative w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl"
+        >
+          <div className="flex justify-center mb-6">
+            <Logo className="h-10 sm:h-12" />
+          </div>
+
+          <h1 className="text-white text-xl sm:text-2xl font-bold text-center mb-1">
+            Confirm it's you
+          </h1>
+          <p className="text-gray-500 text-sm text-center mb-6">
+            Every admin sign-in needs a code. We've emailed a 6-digit one
+            {challenge.email ? (
+              <> to <span className="text-gray-300">{challenge.email}</span></>
+            ) : null}
+            . It expires in {challenge.expiresInMinutes} minutes.
+          </p>
+
+          <div className="mb-6">
+            <label htmlFor="login-otp" className="text-gray-400 text-sm">
+              Code
+            </label>
+            <input
+              id="login-otp"
+              // A single field, not six boxes: `one-time-code` on one input is
+              // what lets the OS offer the code straight from the email.
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              autoFocus
+              maxLength={6}
+              className="w-full mt-1.5 px-4 py-3 min-h-[48px] rounded-lg bg-black/50 border border-white/10 text-white text-center text-2xl font-bold tracking-[0.5em] placeholder:text-gray-600 placeholder:tracking-normal focus:outline-none focus:border-[#a3e635] transition"
+              placeholder="000000"
+              value={code}
+              // Digits only, so pasting "Your code is 483920" leaves the code.
+              onChange={(e) =>
+                setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={verifyOtp.isPending || code.length !== 6}
+            className="w-full bg-[#a3e635] text-black font-semibold min-h-[48px] rounded-lg hover:bg-[#bef264] active:scale-[0.99] transition-all duration-150 shadow-lg disabled:opacity-60"
+          >
+            {verifyOtp.isPending ? "Checking…" : "Confirm and sign in"}
+          </button>
+
+          <div className="mt-5 flex items-center justify-between text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setChallenge(null);
+                setCode("");
+                setPassword("");
+                // The widget re-mounts with the credentials form and issues a
+                // fresh token; the one used for the code step is spent.
+                setHumanToken(null);
+              }}
+              className="text-gray-400 hover:text-white py-2"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              disabled={resendOtp.isPending}
+              onClick={() => resendOtp.mutate(challenge.challengeId)}
+              className="text-gray-400 hover:text-[#a3e635] py-2 disabled:opacity-60"
+            >
+              {resendOtp.isPending ? "Sending…" : "Resend code"}
+            </button>
+          </div>
+        </form>
+      ) : (
       <form
         onSubmit={handleSubmit}
         noValidate
@@ -120,12 +239,29 @@ export default function Login() {
           )}
         </div>
 
-        <div className="flex justify-end mb-6">
-          <span className="text-xs text-gray-400 hover:text-[#a3e635] cursor-pointer py-2">
-            Forgot password?
-          </span>
-        </div>
+        <label
+          htmlFor="login-remember"
+          className="flex items-center gap-2 mb-4 py-2 text-sm text-gray-400 cursor-pointer select-none"
+        >
+          <input
+            id="login-remember"
+            type="checkbox"
+            className="h-4 w-4 accent-[#a3e635] cursor-pointer"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+          />
+          Remember me
+        </label>
 
+        <HumanCheck
+          onToken={setHumanToken}
+          resetKey={humanReset}
+          onError={(message) => toast.error(message)}
+        />
+
+        {/* Live while the human check runs: a disabled button swallowed the
+            click, so empty fields showed no errors and the "confirm you're
+            human" prompt in handleSubmit could never appear. */}
         <button
           type="submit"
           disabled={isPending}
@@ -134,6 +270,7 @@ export default function Login() {
           {isPending ? "Logging in…" : "Login"}
         </button>
       </form>
+      )}
     </div>
   );
 }

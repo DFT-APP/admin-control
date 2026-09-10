@@ -47,7 +47,11 @@ RUN --mount=type=cache,target=/root/.npm \
 FROM deps AS build
 
 ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL}
+# Public Turnstile site key for the "I'm a human" check on log in. Leave unset
+# only if the API does not list this panel's origin in TURNSTILE_ORIGINS.
+ARG VITE_TURNSTILE_SITE_KEY
+ENV VITE_API_URL=${VITE_API_URL} \
+    VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY}
 
 COPY . .
 

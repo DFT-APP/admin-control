@@ -76,6 +76,10 @@ export async function apiClient<T = unknown>(
       signal,
       headers: {
         ...(!isFormData && { "Content-Type": "application/json" }),
+        // Tells the API this client can complete a two-step sign-in, so an
+        // unrecognised device is challenged for an emailed code rather than
+        // let straight in. The API only challenges clients that say this.
+        "X-Otp-Support": "1",
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },

@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/apiClient";
+import { getToken } from "@/lib/tokenStorage";
 
 /**
  * Sends a console-side failure to the server so it lands in the same list as
@@ -14,7 +15,7 @@ export function reportError(
 ) {
   // No token means no signed-in admin, and the endpoint is admin-only — the
   // login screen's own failures are not reportable, and that is fine.
-  if (!localStorage.getItem("token")) return;
+  if (!getToken()) return;
 
   apiClient("/api/admin/logs/client-error", {
     method: "POST",

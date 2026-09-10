@@ -71,7 +71,12 @@ server {
     # so an injected <script> or a javascript: URL is refused by the browser.
     # connect-src has to name the API origin — the panel is served from a
     # different host than it talks to.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' ${API_ORIGIN}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+    #
+    # The one outside script and frame origin is https://challenges.cloudflare.com:
+    # the "I'm a human" check on log in is Cloudflare Turnstile, which loads its
+    # script from there and runs the challenge in an iframe. It is named exactly,
+    # not wildcarded.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' ${API_ORIGIN}; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
 
     gzip on;
     gzip_vary on;
