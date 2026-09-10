@@ -8,7 +8,8 @@
 # from the operator's browser.
 #
 # Build:
-#   docker build -t dft-admin --build-arg VITE_API_URL=https://api.dft.market .
+#   docker build -t dft-admin --build-arg VITE_API_URL=https://api.dft.market \
+#     --build-arg VITE_TURNSTILE_SITE_KEY=<public site key> .
 #   docker run -p 8080:8080 -e API_ORIGIN=https://api.dft.market dft-admin
 # ---------------------------------------------------------------------------
 

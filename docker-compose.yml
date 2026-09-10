@@ -4,6 +4,11 @@ services:
       context: .
       args:
         VITE_API_URL: ${VITE_API_URL:-https://api.dft.market}
+        # Public Turnstile site key. Vite bakes it in at build time and .env is
+        # kept out of the build context, so without this arg the "I'm a human"
+        # check is silently compiled out of the production bundle. Compose
+        # reads it from the shell or from this directory's .env.
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
     image: dft-admin:latest
     restart: unless-stopped
     environment:

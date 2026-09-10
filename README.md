@@ -36,6 +36,7 @@ refuses any account the server does not confirm as an admin.
 | --- | --- | --- |
 | `VITE_API_URL` | build time | Base URL of the API, no trailing slash. Defaults to `https://api.dft.market`. |
 | `API_ORIGIN` | container run time | Origin allowed by the CSP `connect-src`. Must match `VITE_API_URL`, or the browser blocks every request. compose defaults both to the same value. |
+| `VITE_TURNSTILE_SITE_KEY` | build time | Public Cloudflare Turnstile site key for the "I'm a human" check on log in. `.env` is excluded from the Docker build context, so it has to reach the build as a build arg — compose passes it from the shell or this directory's `.env`. Missing at build time, the check is compiled out of the bundle with no error. Its Cloudflare widget must list the panel's hostname. |
 
 **`VITE_API_URL` is fixed at build time.** Vite inlines `import.meta.env` into
 the JavaScript it emits, so an image built against staging cannot be repointed
@@ -56,23 +57,23 @@ in the served bundle by anyone who can open the panel.
 
 ## Deployment
 
-The panel is served at **https://admin.dft.market**, talking to the API at
+The panel is served at **https://admin-control.dft.market**, talking to the API at
 **https://api.dft.market**. Two tiers:
 
 ```
-admin.dft.market  ──►  host nginx (TLS)  ──►  container on 127.0.0.1:8080
-                       docker/admin.dft.market.conf
+admin-control.dft.market  ──►  host nginx (TLS)  ──►  container on 127.0.0.1:8080
+                               docker/admin-control.dft.market.conf
 ```
 
-**1. DNS** — point `admin.dft.market` at the server (an `A` record to the same
+**1. DNS** — point `admin-control.dft.market` at the server (an `A` record to the same
 host that already serves `api.dft.market`).
 
 **2. Reverse proxy** — install the vhost and issue a certificate:
 
 ```bash
-sudo cp docker/admin.dft.market.conf /etc/nginx/sites-available/admin.dft.market
-sudo ln -s /etc/nginx/sites-available/admin.dft.market /etc/nginx/sites-enabled/
-sudo certbot --nginx -d admin.dft.market
+sudo cp docker/admin-control.dft.market.conf /etc/nginx/sites-available/admin-control.dft.market
+sudo ln -s /etc/nginx/sites-available/admin-control.dft.market /etc/nginx/sites-enabled/
+sudo certbot --nginx -d admin-control.dft.market
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -89,7 +90,8 @@ in, so binding all interfaces would expose the panel on port 8080 with no TLS.
 Without compose:
 
 ```bash
-docker build -t dft-admin --build-arg VITE_API_URL=https://api.dft.market .
+docker build -t dft-admin --build-arg VITE_API_URL=https://api.dft.market \
+  --build-arg VITE_TURNSTILE_SITE_KEY=<public site key> .
 docker run -d -p 127.0.0.1:8080:8080 -e API_ORIGIN=https://api.dft.market dft-admin
 ```
 
@@ -102,7 +104,7 @@ the internet to call the API with `credentials: true`. Now that the panel has a
 fixed hostname, pin it — in `backend/.env`:
 
 ```
-CORS_ALLOWED_ORIGINS=https://admin.dft.market
+CORS_ALLOWED_ORIGINS=https://admin-control.dft.market
 ```
 
 Restart the API after changing it. Get this wrong and the panel loads but every
